@@ -1,120 +1,185 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const gridContainer = document.getElementById('grid-container');
-    let selectedCell = null;
-
-    for (let i = 0; i < 49; i++) { // 7x7 grid, so 49 cells
-        const cell = document.createElement('div');
-        cell.classList.add('grid-cell');
-        cell.dataset.index = i;
-
-        if (i === 0) {
-            // Special case for the top-left cell
-            cell.classList.add('non-interactive');
+// Define the Cell class
+class Cell {
+    constructor(value) {
+        if (['1', '2', 'tempX', 'selectedX', 'empty'].includes(value)) {
+            this.value = value;
+            this.immutable = false;
         } else {
-            cell.dataset.clicks = 0;
-            cell.addEventListener('click', handleClick);
-        }
-
-        gridContainer.appendChild(cell);
-    }
-
-    function handleClick(event) {
-        const cell = event.target;
-        const index = parseInt(cell.dataset.index);
-        let clicks = parseInt(cell.dataset.clicks);
-
-        if (selectedCell && selectedCell !== cell) {
-            // Reset previously selected cell if it is not the current cell
-            resetCell(selectedCell);
-        }
-
-        if (cell.classList.contains('x')) {
-            // Special case for clicking on an X cell
-            removeAdjacentX();
-            cell.textContent = 'X';
-            cell.classList.add('x');
-            selectedCell = cell;
-            return;
-        }
-
-        clicks = (clicks + 1) % 3; // Increment and reset after 2 (0 -> 1 -> 2 -> 0)
-        cell.dataset.clicks = clicks;
-
-        if (clicks === 0) {
-            cell.textContent = '';
-            cell.classList.remove('one', 'two');
-            removeAllSpecialCells();
-        } else if (clicks === 1) {
-            cell.textContent = '1';
-            cell.classList.add('one');
-            cell.classList.remove('two');
-            selectedCell = cell;
-            removeAllSpecialCells();
-        } else if (clicks === 2) {
-            cell.textContent = '2';
-            cell.classList.add('two');
-            cell.classList.remove('one');
-            addAdjacentX(index);
-            selectedCell = cell;
+            throw new Error("Invalid value");
         }
     }
 
-    function resetCell(cell) {
-        if (parseInt(cell.dataset.clicks) === 1) {
-            cell.textContent = '';
-            cell.classList.remove('one');
+    getValue() {
+        return this.value;
+    }
+
+    setValue(newValue) {
+        if (!this.immutable && ['1', '2', 'tempX', 'selectedX', 'empty'].includes(newValue)) {
+            this.value = newValue;
         } 
-        cell.dataset.clicks = 0;
+        
+        else if (this.immutable){
+            throw new Error("Cannot modify an immutable cell")
+        }
+        else {
+            throw new Error("Invalid value");
+        }
+    }
+    makeImmutable() {
+        this.immutable = true; // Mark the cell as immutable
     }
 
-    function addAdjacentX(index) {
-        const adjacentIndices = getAdjacentIndices(index);
-        adjacentIndices.forEach(i => {
-            const adjacentCell = gridContainer.children[i];
-            if (adjacentCell.dataset.clicks != 2) {
-                adjacentCell.textContent = 'X';
-                adjacentCell.classList.add('x');
+    isImmutable() {
+        return this.immutable;
+    }
+}
+
+// Create the grid and map each cell to an instance of the Cell class
+const grid = [];
+const gridContainer = document.getElementById('grid');
+
+for (let i = 0; i < 49; i++) {
+    // Create a new Cell instance with the initial value 'empty'
+    const cellInstance = new Cell('empty');
+    grid.push(cellInstance);
+
+    // Create a corresponding DOM element
+    const cellElement = document.createElement('div');
+    cellElement.className = 'cell empty';
+    cellElement.dataset.index = i; // Map cell index
+    cellElement.textContent = ''; // Set initial cell content
+
+    // Special case for the first cell (i === 0)
+    if (i === 0) {
+        cellElement.classList.add('special'); // Add a special class for different styling
+        cellElement.style.backgroundColor = 'purple'; // Set a unique color
+        // Remove the click event listener for the first cell
+        cellElement.removeEventListener('click', handleClick);
+    } else {
+        // Attach the click event listener for all other cells
+        cellElement.addEventListener('click', handleClick);
+    }
+
+    // Append the cell element to the grid container
+    gridContainer.appendChild(cellElement);
+}
+
+
+// Function to handle clicks on cells
+function handleClick(event) {
+    const clickedCellElement = event.target;
+    const cellIndex = parseInt(clickedCellElement.dataset.index);
+    const clickedCell = grid[cellIndex];
+
+          // Ignore clicks on immutable cells
+    if (clickedCell.isImmutable()) {
+        return;
+    }
+
+
+    const value = clickedCell.getValue();
+
+    if (value === 'empty') {
+        grid.forEach(cell => {
+            if (!cell.isImmutable() && ['1', '2', 'tempX', 'selectedX'].includes(cell.getValue())) {
+                cell.setValue('empty');
+            }
+        });
+        clickedCell.setValue('1');
+        endTurnButton.disabled = false;
+    } 
+    
+        else if (value === '1') {
+        const adjacentIndices = getAdjacentIndices(cellIndex);
+        adjacentIndices.forEach(index => {
+            if (!grid[index].isImmutable() && ['empty', 'tempX', 'selectedX'].includes(grid[index].getValue())) {
+                grid[index].setValue('tempX');
+            }
+        });
+        clickedCell.setValue('2');
+        endTurnButton.disabled = true;
+
+    } 
+    
+    
+    else if (value === '2') {
+        grid.forEach(cell => {
+            if (!cell.isImmutable() && ['1', '2', 'tempX', 'selectedX'].includes(cell.getValue())) {
+                cell.setValue('empty');
+            }
+        });
+        endTurnButton.disabled = false;
+    } 
+    
+    
+    else if (value === 'tempX') {
+        clickedCell.setValue('selectedX');
+        grid.forEach(cell => {
+            if (!cell.isImmutable() && cell.getValue() === 'tempX') {
+                cell.setValue('empty');
+            }
+        });
+        endTurnButton.disabled = false;
+
+    } else if (value === 'selectedX') {
+        grid.forEach(cell => {
+            if (!cell.isImmutable() && ['1', '2', 'tempX', 'selectedX'].includes(cell.getValue())) {
+                cell.setValue('empty');
+            }
+        });
+        endTurnButton.disabled = false;
+    }
+
+    updateGridUI();
+}
+
+// Helper function to get adjacent indices in the grid
+function getAdjacentIndices(index) {
+    const adjacent = [];
+    const row = Math.floor(index / 7);
+    const col = index % 7;
+
+    if (row > 0) adjacent.push(index - 7);
+    if (row < 6) adjacent.push(index + 7);
+    if (col > 0) adjacent.push(index - 1);
+    if (col < 6) adjacent.push(index + 1);
+
+    return adjacent;
+}
+
+// Function to update the UI
+function updateGridUI() {
+    const cellElements = document.querySelectorAll('.cell');
+    cellElements.forEach((cellElement, index) => {
+        const cellValue = grid[index].getValue();
+
+        // Update the class to match the current cell value
+        cellElement.className = `cell`; // Reset class to ensure no residual classes
+        if (cellValue === '1') {
+            cellElement.classList.add('one');
+        } else if (cellValue === '2') {
+            cellElement.classList.add('two');
+        } else if (cellValue === 'tempX') {
+            cellElement.classList.add('tempX');
+        } else if (cellValue === 'selectedX') {
+            cellElement.classList.add('selectedX');
+        }
+
+        // Update text content based on cell value
+        if (cellValue === 'tempX') {
+            cellElement.textContent = 'X'; // Gray X for tempX
+        } else if (cellValue === 'selectedX') {
+            cellElement.textContent = 'X'; // Black X for selectedX
+        } else {
+            cellElement.textContent = cellValue !== 'empty' ? cellValue : ''; // Display 1 or 2, or leave blank for empty
+        }
+    });
+}
+    
+    function endTurn() {
+        grid.forEach(cell => {
+            if (!cell.isImmutable() && ['1', '2','selectedX'].includes(cell.getValue())) {
+                cell.makeImmutable();
             }
         });
     }
-
-    function removeAllSpecialCells() {
-        const cells = document.querySelectorAll('.grid-cell.x, .grid-cell.two');
-        cells.forEach(cell => {
-            if (cell.dataset.clicks != 2) {
-                cell.textContent = '';
-                cell.classList.remove('x', 'two');
-            }
-        });
-    }
-
-    function removeAdjacentX() {
-        const cells = document.querySelectorAll('.grid-cell.x');
-        cells.forEach(cell => {
-            cell.textContent = '';
-            cell.classList.remove('x');
-        });
-    }
-
-    function getAdjacentIndices(index) {
-        const adjacentIndices = [];
-        const row = Math.floor(index / 7);
-        const col = index % 7;
-
-        if (col > 0) adjacentIndices.push(index - 1); // left
-        if (col < 6) adjacentIndices.push(index + 1); // right
-        if (row > 0) adjacentIndices.push(index - 7); // top
-        if (row < 6) adjacentIndices.push(index + 7); // bottom
-
-        return adjacentIndices;
-    }
-
-    window.endTurn = function() {
-        const cells = document.querySelectorAll('.grid-cell');
-        cells.forEach(cell => {
-            if (cell.textContent !== '') {
-                cell.removeEventListener('click', handleClick);
-            }
-        });
-    }
-});
