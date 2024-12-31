@@ -5,37 +5,39 @@ body {
     height: 100vh;
     margin: 0;
     font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
 }
 
-#grid-container {
+#grid {
     display: grid;
     grid-template-columns: repeat(7, 50px);
     grid-template-rows: repeat(7, 50px);
     gap: 5px;
 }
 
-.grid-cell {
+.cell {
     width: 50px;
     height: 50px;
-    background-color: lightgray;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 24px;
+    font-size: 18px;
+    font-weight: bold;
     cursor: pointer;
-    user-select: none;
     border: 1px solid #ccc;
+    user-select: none;
+    background-color: rgba(255, 255, 255, 0.342);
+    color: black;
 }
 
-.grid-cell.one {
+.cell.one {
     background-color: lightblue;
 }
 
-.grid-cell.two {
+.cell.two {
     background-color: lightgreen;
 }
-
-.grid-cell.non-interactive {
-    background-color: purple;
-    cursor: default;
+button{
+    margin-top: 600px;
+    margin-left: -380px;
 }
